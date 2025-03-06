@@ -34,6 +34,7 @@
             border: 4px solid #333;
             position: relative;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            overflow: hidden; /* Ensure content doesn't overflow */
         }
         
         .info-panel {
@@ -85,6 +86,7 @@
             position: absolute;
             box-sizing: border-box;
             border: 1px solid rgba(0, 0, 0, 0.2);
+            z-index: 1; /* Set a base z-index for blocks */
         }
         
         .i-block {
@@ -133,6 +135,7 @@
             color: white;
             font-size: 24px;
             display: none;
+            z-index: 1000; /* Ensure game over screen is on top */
         }
         
         button {
@@ -147,10 +150,44 @@
             margin: 10px 0;
             cursor: pointer;
             border-radius: 4px;
+            width: 100%;
         }
         
         button:hover {
             background-color: #45a049;
+        }
+        
+        #game-button.paused {
+            background-color: #ff9800;
+        }
+        
+        #game-button.paused:hover {
+            background-color: #e68a00;
+        }
+        
+        #game-button.running {
+            background-color: #2196F3;
+        }
+        
+        #game-button.running:hover {
+            background-color: #0b7dda;
+        }
+        
+        .pause-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+            z-index: 500;
+            display: none;
         }
         
         @media (max-width: 600px) {
@@ -181,6 +218,7 @@
     
     <div class="game-container">
         <div id="game-board">
+            <div class="pause-overlay">已暂停</div>
             <div class="game-over">
                 <p>游戏结束!</p>
                 <button id="restart-button">重新开始</button>
@@ -202,7 +240,7 @@
                 <p>↓ : 加速下落</p>
                 <p>空格 : 直接下落</p>
                 <p>P : 暂停</p>
-                <button id="start-button">开始游戏</button>
+                <button id="game-button">开始游戏</button>
             </div>
         </div>
     </div>
@@ -225,6 +263,7 @@
         let currentPiece = null;
         let nextPiece = null;
         let ghostPiece = null;
+        let gameStarted = false;
         
         // DOM elements
         const gameBoard = document.getElementById('game-board');
@@ -232,9 +271,10 @@
         const scoreElement = document.getElementById('score');
         const linesElement = document.getElementById('lines');
         const levelElement = document.getElementById('level');
-        const startButton = document.getElementById('start-button');
+        const gameButton = document.getElementById('game-button');
         const restartButton = document.getElementById('restart-button');
         const gameOverScreen = document.querySelector('.game-over');
+        const pauseOverlay = document.querySelector('.pause-overlay');
         
         // Tetromino shapes
         const SHAPES = [
@@ -295,20 +335,23 @@
             level = 1;
             isPaused = false;
             isGameOver = false;
+            gameStarted = true;
             
             // Update UI
             scoreElement.textContent = score;
             linesElement.textContent = lines;
             levelElement.textContent = level;
+            updateGameButtonState();
             
-            // Hide game over screen
+            // Hide game over screen and pause overlay
             gameOverScreen.style.display = 'none';
+            pauseOverlay.style.display = 'none';
             
             // Clear the board
             const blocks = document.querySelectorAll('.block');
             blocks.forEach(block => {
-                if (!block.parentNode.classList.contains('game-over')) {
-                    block.parentNode.removeChild(block);
+                if (block.parentNode === gameBoard) {
+                    gameBoard.removeChild(block);
                 }
             });
             
@@ -662,21 +705,69 @@
         
         // Game over
         function gameOver() {
+            console.log("Game over");
             isGameOver = true;
+            gameStarted = false;
             clearInterval(gameInterval);
+            
+            // Update game button to show "Start Game"
+            updateGameButtonState();
+            
+            // Make sure game over screen is on top and visible
             gameOverScreen.style.display = 'flex';
+            gameOverScreen.style.zIndex = '1000';
+            
+            // Bring game over screen to front
+            gameBoard.appendChild(gameOverScreen);
         }
         
         // Toggle pause
         function togglePause() {
-            if (isGameOver) return;
+            if (isGameOver || !gameStarted) return;
             
             isPaused = !isPaused;
             
             if (isPaused) {
                 clearInterval(gameInterval);
+                pauseOverlay.style.display = 'flex';
             } else {
                 gameInterval = setInterval(moveDown, getSpeed());
+                pauseOverlay.style.display = 'none';
+            }
+            
+            // Update game button
+            updateGameButtonState();
+        }
+        
+        // Update game button state
+        function updateGameButtonState() {
+            // Remove all classes first
+            gameButton.classList.remove('running', 'paused');
+            
+            if (isGameOver || !gameStarted) {
+                // Game is over or hasn't started yet
+                gameButton.textContent = "开始游戏";
+            } else if (isPaused) {
+                // Game is paused
+                gameButton.textContent = "继续游戏";
+                gameButton.classList.add('paused');
+            } else {
+                // Game is running
+                gameButton.textContent = "暂停游戏";
+                gameButton.classList.add('running');
+            }
+        }
+        
+        // Handle game button click
+        function handleGameButtonClick() {
+            console.log("Game button clicked");
+            
+            if (isGameOver || !gameStarted) {
+                // Start a new game
+                init();
+            } else {
+                // Toggle pause
+                togglePause();
             }
         }
         
@@ -707,16 +798,16 @@
             }
         });
         
-        // Add event listeners directly (not inside DOMContentLoaded)
-        startButton.addEventListener('click', function() {
-            console.log("Start button clicked");
-            init();
-        });
+        // Add event listeners directly
+        gameButton.addEventListener('click', handleGameButtonClick);
         
         restartButton.addEventListener('click', function() {
             console.log("Restart button clicked");
             init();
         });
+        
+        // Initialize button state
+        updateGameButtonState();
     </script>
 </body>
 </html>
