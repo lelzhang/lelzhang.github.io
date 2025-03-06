@@ -1,13 +1,722 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>lelzhang</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>俄罗斯方块</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        #game-board {
+            width: 300px;
+            height: 600px;
+            background-color: #111;
+            border: 4px solid #333;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .next-piece {
+            width: 150px;
+            height: 150px;
+            background-color: #222;
+            border: 4px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        
+        .stats {
+            background-color: #222;
+            border: 4px solid #333;
+            padding: 15px;
+            color: white;
+            width: 150px;
+        }
+        
+        .stats p {
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .controls {
+            background-color: #222;
+            border: 4px solid #333;
+            padding: 15px;
+            color: white;
+            width: 150px;
+        }
+        
+        .controls p {
+            margin: 5px 0;
+        }
+        
+        .block {
+            width: 30px;
+            height: 30px;
+            position: absolute;
+            box-sizing: border-box;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+        
+        .i-block {
+            background-color: cyan;
+        }
+        
+        .j-block {
+            background-color: blue;
+        }
+        
+        .l-block {
+            background-color: orange;
+        }
+        
+        .o-block {
+            background-color: yellow;
+        }
+        
+        .s-block {
+            background-color: green;
+        }
+        
+        .t-block {
+            background-color: purple;
+        }
+        
+        .z-block {
+            background-color: red;
+        }
+        
+        .ghost {
+            opacity: 0.3;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 24px;
+            display: none;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        @media (max-width: 600px) {
+            .game-container {
+                flex-direction: column;
+            }
+            
+            .info-panel {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            #game-board {
+                width: 240px;
+                height: 480px;
+            }
+            
+            .block {
+                width: 24px;
+                height: 24px;
+            }
+        }
+    </style>
 </head>
-
 <body>
-    <h1></h1>
-    <p>this is home page.</p>
-</body>
+    <h1>俄罗斯方块</h1>
+    
+    <div class="game-container">
+        <div id="game-board">
+            <div class="game-over">
+                <p>游戏结束!</p>
+                <button id="restart-button">重新开始</button>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <div class="next-piece" id="next-piece-display"></div>
+            
+            <div class="stats">
+                <p>分数: <span id="score">0</span></p>
+                <p>行数: <span id="lines">0</span></p>
+                <p>等级: <span id="level">1</span></p>
+            </div>
+            
+            <div class="controls">
+                <p>← → : 左右移动</p>
+                <p>↑ : 旋转</p>
+                <p>↓ : 加速下落</p>
+                <p>空格 : 直接下落</p>
+                <p>P : 暂停</p>
+                <button id="start-button">开始游戏</button>
+            </div>
+        </div>
+    </div>
 
+    <script>
+        // Game constants
+        const BOARD_WIDTH = 10;
+        const BOARD_HEIGHT = 20;
+        const BLOCK_SIZE = 30;
+        const COLORS = ['i-block', 'j-block', 'l-block', 'o-block', 's-block', 't-block', 'z-block'];
+        
+        // Game variables
+        let board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+        let score = 0;
+        let lines = 0;
+        let level = 1;
+        let gameInterval;
+        let isPaused = false;
+        let isGameOver = false;
+        let currentPiece = null;
+        let nextPiece = null;
+        let ghostPiece = null;
+        
+        // DOM elements
+        const gameBoard = document.getElementById('game-board');
+        const nextPieceDisplay = document.getElementById('next-piece-display');
+        const scoreElement = document.getElementById('score');
+        const linesElement = document.getElementById('lines');
+        const levelElement = document.getElementById('level');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const gameOverScreen = document.querySelector('.game-over');
+        
+        // Tetromino shapes
+        const SHAPES = [
+            // I
+            [
+                [0, 0, 0, 0],
+                [1, 1, 1, 1],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0]
+            ],
+            // J
+            [
+                [1, 0, 0],
+                [1, 1, 1],
+                [0, 0, 0]
+            ],
+            // L
+            [
+                [0, 0, 1],
+                [1, 1, 1],
+                [0, 0, 0]
+            ],
+            // O
+            [
+                [1, 1],
+                [1, 1]
+            ],
+            // S
+            [
+                [0, 1, 1],
+                [1, 1, 0],
+                [0, 0, 0]
+            ],
+            // T
+            [
+                [0, 1, 0],
+                [1, 1, 1],
+                [0, 0, 0]
+            ],
+            // Z
+            [
+                [1, 1, 0],
+                [0, 1, 1],
+                [0, 0, 0]
+            ]
+        ];
+        
+        // Initialize the game
+        function init() {
+            console.log("Game initialized");
+            
+            // Clear the board
+            board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+            
+            // Reset game variables
+            score = 0;
+            lines = 0;
+            level = 1;
+            isPaused = false;
+            isGameOver = false;
+            
+            // Update UI
+            scoreElement.textContent = score;
+            linesElement.textContent = lines;
+            levelElement.textContent = level;
+            
+            // Hide game over screen
+            gameOverScreen.style.display = 'none';
+            
+            // Clear the board
+            const blocks = document.querySelectorAll('.block');
+            blocks.forEach(block => {
+                if (!block.parentNode.classList.contains('game-over')) {
+                    block.parentNode.removeChild(block);
+                }
+            });
+            
+            // Generate first pieces
+            nextPiece = generateRandomPiece();
+            spawnNewPiece();
+            
+            // Start the game loop
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(moveDown, getSpeed());
+        }
+        
+        // Generate a random tetromino piece
+        function generateRandomPiece() {
+            const randomIndex = Math.floor(Math.random() * SHAPES.length);
+            const shape = SHAPES[randomIndex];
+            const colorClass = COLORS[randomIndex];
+            
+            return {
+                shape,
+                colorClass,
+                x: Math.floor((BOARD_WIDTH - shape[0].length) / 2),
+                y: 0,
+                rotation: 0
+            };
+        }
+        
+        // Spawn a new piece
+        function spawnNewPiece() {
+            currentPiece = nextPiece;
+            nextPiece = generateRandomPiece();
+            
+            // Check for game over
+            if (isCollision(currentPiece)) {
+                gameOver();
+                return;
+            }
+            
+            // Update next piece display
+            updateNextPieceDisplay();
+            
+            // Create ghost piece
+            updateGhostPiece();
+            
+            // Draw the current piece
+            drawPiece();
+        }
+        
+        // Update the next piece display
+        function updateNextPieceDisplay() {
+            // Clear the display
+            while (nextPieceDisplay.firstChild) {
+                nextPieceDisplay.removeChild(nextPieceDisplay.firstChild);
+            }
+            
+            // Calculate center position
+            const centerX = 75 - (nextPiece.shape[0].length * 15);
+            const centerY = 75 - (nextPiece.shape.length * 15);
+            
+            // Draw the next piece
+            for (let y = 0; y < nextPiece.shape.length; y++) {
+                for (let x = 0; x < nextPiece.shape[y].length; x++) {
+                    if (nextPiece.shape[y][x]) {
+                        const block = document.createElement('div');
+                        block.classList.add('block', nextPiece.colorClass);
+                        block.style.left = `${centerX + x * 30}px`;
+                        block.style.top = `${centerY + y * 30}px`;
+                        nextPieceDisplay.appendChild(block);
+                    }
+                }
+            }
+        }
+        
+        // Update ghost piece position
+        function updateGhostPiece() {
+            if (!currentPiece) return;
+            
+            // Create a copy of the current piece
+            ghostPiece = {
+                ...currentPiece,
+                y: currentPiece.y
+            };
+            
+            // Move the ghost piece down until collision
+            while (!isCollision(ghostPiece)) {
+                ghostPiece.y++;
+            }
+            
+            // Move back up one step
+            ghostPiece.y--;
+        }
+        
+        // Draw the current piece on the board
+        function drawPiece() {
+            // Remove all current piece blocks
+            const blocks = document.querySelectorAll('.block:not(.fixed)');
+            blocks.forEach(block => {
+                if (block.parentNode === gameBoard) {
+                    gameBoard.removeChild(block);
+                }
+            });
+            
+            // Draw the current piece
+            if (currentPiece) {
+                for (let y = 0; y < currentPiece.shape.length; y++) {
+                    for (let x = 0; x < currentPiece.shape[y].length; x++) {
+                        if (currentPiece.shape[y][x]) {
+                            const block = document.createElement('div');
+                            block.classList.add('block', currentPiece.colorClass);
+                            block.style.left = `${(currentPiece.x + x) * BLOCK_SIZE}px`;
+                            block.style.top = `${(currentPiece.y + y) * BLOCK_SIZE}px`;
+                            gameBoard.appendChild(block);
+                        }
+                    }
+                }
+            }
+            
+            // Draw the ghost piece
+            if (ghostPiece && ghostPiece.y !== currentPiece.y) {
+                for (let y = 0; y < ghostPiece.shape.length; y++) {
+                    for (let x = 0; x < ghostPiece.shape[y].length; x++) {
+                        if (ghostPiece.shape[y][x]) {
+                            const block = document.createElement('div');
+                            block.classList.add('block', ghostPiece.colorClass, 'ghost');
+                            block.style.left = `${(ghostPiece.x + x) * BLOCK_SIZE}px`;
+                            block.style.top = `${(ghostPiece.y + y) * BLOCK_SIZE}px`;
+                            gameBoard.appendChild(block);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Check for collision
+        function isCollision(piece) {
+            for (let y = 0; y < piece.shape.length; y++) {
+                for (let x = 0; x < piece.shape[y].length; x++) {
+                    if (piece.shape[y][x]) {
+                        const boardX = piece.x + x;
+                        const boardY = piece.y + y;
+                        
+                        // Check boundaries
+                        if (boardX < 0 || boardX >= BOARD_WIDTH || boardY >= BOARD_HEIGHT) {
+                            return true;
+                        }
+                        
+                        // Check collision with fixed blocks
+                        if (boardY >= 0 && board[boardY][boardX]) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        
+        // Rotate the current piece
+        function rotatePiece() {
+            if (!currentPiece || isPaused || isGameOver) return;
+            
+            const originalShape = currentPiece.shape;
+            const originalRotation = currentPiece.rotation;
+            
+            // Create a new rotated shape
+            const newShape = [];
+            for (let i = 0; i < originalShape[0].length; i++) {
+                newShape.push([]);
+                for (let j = originalShape.length - 1; j >= 0; j--) {
+                    newShape[i].push(originalShape[j][i]);
+                }
+            }
+            
+            // Try to rotate
+            const originalX = currentPiece.x;
+            currentPiece.shape = newShape;
+            currentPiece.rotation = (currentPiece.rotation + 1) % 4;
+            
+            // Wall kick - try to adjust position if rotation causes collision
+            if (isCollision(currentPiece)) {
+                // Try moving left
+                currentPiece.x--;
+                if (isCollision(currentPiece)) {
+                    // Try moving right
+                    currentPiece.x += 2;
+                    if (isCollision(currentPiece)) {
+                        // Try moving up
+                        currentPiece.x = originalX;
+                        currentPiece.y--;
+                        if (isCollision(currentPiece)) {
+                            // Revert rotation
+                            currentPiece.shape = originalShape;
+                            currentPiece.rotation = originalRotation;
+                            currentPiece.y++;
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // Update ghost piece
+            updateGhostPiece();
+            
+            // Redraw the piece
+            drawPiece();
+        }
+        
+        // Move the current piece left
+        function moveLeft() {
+            if (!currentPiece || isPaused || isGameOver) return;
+            
+            currentPiece.x--;
+            if (isCollision(currentPiece)) {
+                currentPiece.x++;
+                return;
+            }
+            
+            // Update ghost piece
+            updateGhostPiece();
+            
+            // Redraw the piece
+            drawPiece();
+        }
+        
+        // Move the current piece right
+        function moveRight() {
+            if (!currentPiece || isPaused || isGameOver) return;
+            
+            currentPiece.x++;
+            if (isCollision(currentPiece)) {
+                currentPiece.x--;
+                return;
+            }
+            
+            // Update ghost piece
+            updateGhostPiece();
+            
+            // Redraw the piece
+            drawPiece();
+        }
+        
+        // Move the current piece down
+        function moveDown() {
+            if (!currentPiece || isPaused || isGameOver) return;
+            
+            currentPiece.y++;
+            if (isCollision(currentPiece)) {
+                currentPiece.y--;
+                lockPiece();
+                return;
+            }
+            
+            // Redraw the piece
+            drawPiece();
+        }
+        
+        // Drop the current piece to the bottom
+        function hardDrop() {
+            if (!currentPiece || isPaused || isGameOver) return;
+            
+            while (!isCollision(currentPiece)) {
+                currentPiece.y++;
+            }
+            currentPiece.y--;
+            lockPiece();
+        }
+        
+        // Lock the current piece in place
+        function lockPiece() {
+            // Add the piece to the board
+            for (let y = 0; y < currentPiece.shape.length; y++) {
+                for (let x = 0; x < currentPiece.shape[y].length; x++) {
+                    if (currentPiece.shape[y][x]) {
+                        const boardY = currentPiece.y + y;
+                        const boardX = currentPiece.x + x;
+                        
+                        if (boardY >= 0) {
+                            board[boardY][boardX] = currentPiece.colorClass;
+                            
+                            // Create fixed block
+                            const block = document.createElement('div');
+                            block.classList.add('block', 'fixed', currentPiece.colorClass);
+                            block.style.left = `${boardX * BLOCK_SIZE}px`;
+                            block.style.top = `${boardY * BLOCK_SIZE}px`;
+                            gameBoard.appendChild(block);
+                        }
+                    }
+                }
+            }
+            
+            // Check for completed lines
+            checkLines();
+            
+            // Spawn a new piece
+            spawnNewPiece();
+        }
+        
+        // Check for completed lines
+        function checkLines() {
+            let linesCleared = 0;
+            
+            for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell !== 0)) {
+                    // Remove the line
+                    board.splice(y, 1);
+                    board.unshift(Array(BOARD_WIDTH).fill(0));
+                    linesCleared++;
+                    
+                    // Remove blocks from the line
+                    const blocks = document.querySelectorAll('.block.fixed');
+                    blocks.forEach(block => {
+                        const blockY = parseInt(block.style.top) / BLOCK_SIZE;
+                        const blockX = parseInt(block.style.left) / BLOCK_SIZE;
+                        
+                        if (blockY === y) {
+                            gameBoard.removeChild(block);
+                        } else if (blockY < y) {
+                            block.style.top = `${(blockY + 1) * BLOCK_SIZE}px`;
+                        }
+                    });
+                    
+                    // Check the same line again
+                    y++;
+                }
+            }
+            
+            // Update score and level
+            if (linesCleared > 0) {
+                // Score calculation based on number of lines cleared
+                const linePoints = [0, 100, 300, 500, 800];
+                score += linePoints[linesCleared] * level;
+                lines += linesCleared;
+                
+                // Level up every 10 lines
+                level = Math.floor(lines / 10) + 1;
+                
+                // Update UI
+                scoreElement.textContent = score;
+                linesElement.textContent = lines;
+                levelElement.textContent = level;
+                
+                // Update game speed
+                clearInterval(gameInterval);
+                gameInterval = setInterval(moveDown, getSpeed());
+            }
+        }
+        
+        // Calculate game speed based on level
+        function getSpeed() {
+            return Math.max(100, 1000 - (level - 1) * 100);
+        }
+        
+        // Game over
+        function gameOver() {
+            isGameOver = true;
+            clearInterval(gameInterval);
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // Toggle pause
+        function togglePause() {
+            if (isGameOver) return;
+            
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                clearInterval(gameInterval);
+            } else {
+                gameInterval = setInterval(moveDown, getSpeed());
+            }
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (isGameOver) return;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    moveLeft();
+                    break;
+                case 'ArrowRight':
+                    moveRight();
+                    break;
+                case 'ArrowUp':
+                    rotatePiece();
+                    break;
+                case 'ArrowDown':
+                    moveDown();
+                    break;
+                case ' ':
+                    hardDrop();
+                    break;
+                case 'p':
+                case 'P':
+                    togglePause();
+                    break;
+            }
+        });
+        
+        // Add event listeners directly (not inside DOMContentLoaded)
+        startButton.addEventListener('click', function() {
+            console.log("Start button clicked");
+            init();
+        });
+        
+        restartButton.addEventListener('click', function() {
+            console.log("Restart button clicked");
+            init();
+        });
+    </script>
+</body>
 </html>
